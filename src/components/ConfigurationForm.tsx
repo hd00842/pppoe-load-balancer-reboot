@@ -17,16 +17,16 @@ const ConfigurationForm = () => {
 
     const config = `/ip route
 ${Array.from({ length: numConnections }, (_, i) => 
-  `add check-gateway=ping distance=1 gateway=pppoe-out${i + 1} routing-mark=to_wan${i + 1}`
+  `add check-gateway=ping distance=1 gateway=pppoe-out${i + 1} routing-mark=WAN${i + 1}`
 ).join('\n')}
 
 /ip firewall mangle
 ${Array.from({ length: numConnections }, (_, i) => 
-  `add action=mark-connection chain=prerouting in-interface=ether1 new-connection-mark=wan${i + 1}_conn passthrough=yes per-connection-classifier=both-addresses-and-ports:${numConnections}/${i + 1}`
+  `add action=mark-connection chain=prerouting in-interface=ether1 new-connection-mark=WAN${i + 1}_conn passthrough=yes per-connection-classifier=both-addresses-and-ports:${numConnections}/${i + 1}`
 ).join('\n')}
 
 ${Array.from({ length: numConnections }, (_, i) => 
-  `add action=mark-routing chain=prerouting connection-mark=wan${i + 1}_conn new-routing-mark=to_wan${i + 1}`
+  `add action=mark-routing chain=prerouting connection-mark=WAN${i + 1}_conn new-routing-mark=WAN${i + 1}`
 ).join('\n')}
 
 /ip firewall nat
