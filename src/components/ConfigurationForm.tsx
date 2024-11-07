@@ -6,42 +6,33 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const ConfigurationForm = () => {
-  const [ips, setIps] = useState<string[]>(['']);
+  const [numConnections, setNumConnections] = useState<number>(2);
   const [generatedConfig, setGeneratedConfig] = useState('');
 
-  const handleAddIP = () => {
-    setIps([...ips, '']);
-  };
-
-  const handleRemoveIP = (index: number) => {
-    const newIps = ips.filter((_, i) => i !== index);
-    setIps(newIps);
-  };
-
-  const handleIpChange = (index: number, value: string) => {
-    const newIps = [...ips];
-    newIps[index] = value;
-    setIps(newIps);
-  };
-
   const generateConfig = () => {
-    if (ips.some(ip => !ip)) {
-      toast.error("Vui lòng điền đầy đủ địa chỉ IP");
+    if (numConnections < 2) {
+      toast.error("Số lượng kết nối phải từ 2 trở lên");
       return;
     }
 
     const config = `/ip route
-add check-gateway=ping distance=1 gateway=${ips[0]} routing-mark=to_wan1
-${ips.slice(1).map((ip, index) => `add check-gateway=ping distance=1 gateway=${ip} routing-mark=to_wan${index + 2}`).join('\n')}
+${Array.from({ length: numConnections }, (_, i) => 
+  `add check-gateway=ping distance=1 gateway=pppoe-out${i + 1} routing-mark=to_wan${i + 1}`
+).join('\n')}
 
 /ip firewall mangle
-add action=mark-connection chain=prerouting in-interface=ether1 new-connection-mark=wan1_conn passthrough=yes per-connection-classifier=both-addresses-and-ports:${ips.length}/${ips.length}
-${ips.slice(1).map((_, index) => `add action=mark-connection chain=prerouting in-interface=ether1 new-connection-mark=wan${index + 2}_conn passthrough=yes per-connection-classifier=both-addresses-and-ports:${ips.length}/${index + 1}`).join('\n')}
+${Array.from({ length: numConnections }, (_, i) => 
+  `add action=mark-connection chain=prerouting in-interface=ether1 new-connection-mark=wan${i + 1}_conn passthrough=yes per-connection-classifier=both-addresses-and-ports:${numConnections}/${i + 1}`
+).join('\n')}
 
-${ips.map((_, index) => `add action=mark-routing chain=prerouting connection-mark=wan${index + 1}_conn new-routing-mark=to_wan${index + 1}`).join('\n')}
+${Array.from({ length: numConnections }, (_, i) => 
+  `add action=mark-routing chain=prerouting connection-mark=wan${i + 1}_conn new-routing-mark=to_wan${i + 1}`
+).join('\n')}
 
 /ip firewall nat
-${ips.map((ip, index) => `add action=masquerade chain=srcnat out-interface=pppoe-wan${index + 1}`).join('\n')}`;
+${Array.from({ length: numConnections }, (_, i) => 
+  `add action=masquerade chain=srcnat out-interface=pppoe-out${i + 1}`
+).join('\n')}`;
 
     setGeneratedConfig(config);
     toast.success("Đã tạo cấu hình thành công!");
@@ -56,31 +47,22 @@ ${ips.map((ip, index) => `add action=masquerade chain=srcnat out-interface=pppoe
     <div className="container max-w-3xl mx-auto py-8 space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Cấu hình cân bằng tải Mikrotik</CardTitle>
+          <CardTitle>Cấu hình cân bằng tải PPPoE Mikrotik</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-4">
-            {ips.map((ip, index) => (
-              <div key={index} className="flex gap-2">
-                <Input
-                  placeholder={`Địa chỉ IP WAN ${index + 1}`}
-                  value={ip}
-                  onChange={(e) => handleIpChange(index, e.target.value)}
-                />
-                {index > 0 && (
-                  <Button
-                    variant="destructive"
-                    onClick={() => handleRemoveIP(index)}
-                  >
-                    Xóa
-                  </Button>
-                )}
-              </div>
-            ))}
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                min={2}
+                placeholder="Số lượng kết nối PPPoE"
+                value={numConnections}
+                onChange={(e) => setNumConnections(parseInt(e.target.value) || 2)}
+              />
+            </div>
           </div>
           
           <div className="flex gap-2">
-            <Button onClick={handleAddIP}>Thêm IP WAN</Button>
             <Button onClick={generateConfig}>Tạo cấu hình</Button>
           </div>
 
