@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const ConfigurationForm = () => {
   const [numConnections, setNumConnections] = useState<number>(2);
+  const [numMacvlans, setNumMacvlans] = useState<number>(2);
   const [generatedConfig, setGeneratedConfig] = useState('');
 
   const generateConfig = () => {
@@ -15,14 +16,32 @@ const ConfigurationForm = () => {
       return;
     }
 
-    const config = `/ip route
+    if (numMacvlans < numConnections) {
+      toast.error("Số lượng MacVLAN phải lớn hơn hoặc bằng số kết nối PPPoE");
+      return;
+    }
+
+    const config = `/interface ethernet
+set [ find default-name=ether1 ] name=ether1-wan
+
+/interface macvlan
+${Array.from({ length: numMacvlans }, (_, i) => 
+  `add interface=ether1-wan name=macvlan${i + 1}`
+).join('\n')}
+
+/interface pppoe-client
+${Array.from({ length: numConnections }, (_, i) => 
+  `add interface=macvlan${i + 1} name=pppoe-out${i + 1} user=pppoe${i + 1} password=pppoe${i + 1} disabled=no`
+).join('\n')}
+
+/ip route
 ${Array.from({ length: numConnections }, (_, i) => 
   `add check-gateway=ping distance=1 gateway=pppoe-out${i + 1} routing-mark=WAN${i + 1}`
 ).join('\n')}
 
 /ip firewall mangle
 ${Array.from({ length: numConnections }, (_, i) => 
-  `add action=mark-connection chain=prerouting in-interface=ether1 new-connection-mark=WAN${i + 1}_conn passthrough=yes per-connection-classifier=both-addresses-and-ports:${numConnections}/${i + 1}`
+  `add action=mark-connection chain=prerouting in-interface=ether1-wan new-connection-mark=WAN${i + 1}_conn passthrough=yes per-connection-classifier=both-addresses-and-ports:${numConnections}/${i + 1}`
 ).join('\n')}
 
 ${Array.from({ length: numConnections }, (_, i) => 
@@ -51,14 +70,27 @@ ${Array.from({ length: numConnections }, (_, i) =>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-4">
-            <div className="flex gap-2">
-              <Input
-                type="number"
-                min={2}
-                placeholder="Số lượng kết nối PPPoE"
-                value={numConnections}
-                onChange={(e) => setNumConnections(parseInt(e.target.value) || 2)}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Số lượng kết nối PPPoE</label>
+                <Input
+                  type="number"
+                  min={2}
+                  placeholder="Số lượng kết nối PPPoE"
+                  value={numConnections}
+                  onChange={(e) => setNumConnections(parseInt(e.target.value) || 2)}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">Số lượng MacVLAN</label>
+                <Input
+                  type="number"
+                  min={2}
+                  placeholder="Số lượng MacVLAN"
+                  value={numMacvlans}
+                  onChange={(e) => setNumMacvlans(parseInt(e.target.value) || 2)}
+                />
+              </div>
             </div>
           </div>
           
