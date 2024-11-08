@@ -34,7 +34,7 @@ ${defaultRoutes.join('\n')}
 ${customRoutes.length > 0 ? '\n' + customRoutes.join('\n') : ''}`;
 };
 
-export const generateMangleRules = (numConnections: number) => {
+export const generateMangleRules = (numConnections: number, lanNetworks: string[]) => {
   const connectionMarks = Array.from({ length: numConnections }, (_, i) => 
     `add action=mark-connection chain=prerouting in-interface=ether1-wan new-connection-mark=WAN${i + 1}_conn passthrough=yes per-connection-classifier=both-addresses-and-ports:${numConnections}/${i + 1}`
   );
@@ -43,15 +43,29 @@ export const generateMangleRules = (numConnections: number) => {
     `add action=mark-routing chain=prerouting connection-mark=WAN${i + 1}_conn new-routing-mark=WAN${i + 1}`
   );
 
+  const lanAcceptRules = lanNetworks.map(network => 
+    `add action=accept chain=prerouting src-address=${network}`
+  );
+
   return `/ip firewall mangle
+${lanAcceptRules.join('\n')}
+
 ${connectionMarks.join('\n')}
 
 ${routingMarks.join('\n')}`;
 };
 
-export const generateNatRules = (numConnections: number) => {
+export const generateNatRules = (numConnections: number, portForwardIps: string[]) => {
+  const masqueradeRules = Array.from({ length: numConnections }, (_, i) => 
+    `add action=masquerade chain=srcnat out-interface=pppoe-out${i + 1}`
+  );
+
+  const portForwardRules = portForwardIps.map(ip => 
+    `add action=dst-nat chain=dstnat dst-address=${ip} protocol=tcp to-addresses=${ip}`
+  );
+
   return `/ip firewall nat
-${Array.from({ length: numConnections }, (_, i) => 
-  `add action=masquerade chain=srcnat out-interface=pppoe-out${i + 1}`
-).join('\n')}`;
+${masqueradeRules.join('\n')}
+
+${portForwardRules.length > 0 ? portForwardRules.join('\n') : ''}`;
 };

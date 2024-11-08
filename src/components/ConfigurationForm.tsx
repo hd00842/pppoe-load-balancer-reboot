@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { generateBasicConfig, generateIpRouting, generateMangleRules, generateNatRules, generatePPPoEConfig } from "@/utils/configGenerators";
+import { BasicSettingsForm } from "./forms/BasicSettingsForm";
+import { FirewallForm } from "./forms/FirewallForm";
 
 interface IpRoute {
   ip: string;
@@ -21,6 +22,8 @@ const ConfigurationForm = () => {
   const [ipRoutes, setIpRoutes] = useState<IpRoute[]>([]);
   const [newIp, setNewIp] = useState("");
   const [selectedWan, setSelectedWan] = useState(1);
+  const [portForwardIps, setPortForwardIps] = useState<string[]>([]);
+  const [lanNetworks, setLanNetworks] = useState<string[]>([]);
 
   const addIpRoute = () => {
     if (!newIp) {
@@ -52,8 +55,8 @@ const ConfigurationForm = () => {
     const basicConfig = generateBasicConfig(numMacvlans, ethernetInterface);
     const pppoeConfig = generatePPPoEConfig(numConnections, username, password);
     const routingConfig = generateIpRouting(numConnections, ipRoutes);
-    const mangleConfig = generateMangleRules(numConnections);
-    const natConfig = generateNatRules(numConnections);
+    const mangleConfig = generateMangleRules(numConnections, lanNetworks);
+    const natConfig = generateNatRules(numConnections, portForwardIps);
 
     setGeneratedConfigs({
       basic: basicConfig,
@@ -86,92 +89,25 @@ const ConfigurationForm = () => {
           <CardTitle>Cấu hình cân bằng tải PPPoE Mikrotik</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">Số lượng kết nối PPPoE</label>
-                <Input
-                  type="number"
-                  min={2}
-                  placeholder="Số lượng kết nối PPPoE"
-                  value={numConnections}
-                  onChange={(e) => setNumConnections(parseInt(e.target.value) || 2)}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Số lượng MacVLAN</label>
-                <Input
-                  type="number"
-                  min={2}
-                  placeholder="Số lượng MacVLAN"
-                  value={numMacvlans}
-                  onChange={(e) => setNumMacvlans(parseInt(e.target.value) || 2)}
-                />
-              </div>
-            </div>
+          <BasicSettingsForm
+            numConnections={numConnections}
+            setNumConnections={setNumConnections}
+            numMacvlans={numMacvlans}
+            setNumMacvlans={setNumMacvlans}
+            ethernetInterface={ethernetInterface}
+            setEthernetInterface={setEthernetInterface}
+            username={username}
+            setUsername={setUsername}
+            password={password}
+            setPassword={setPassword}
+          />
 
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">Ethernet Interface</label>
-                <Input
-                  placeholder="Ethernet Interface"
-                  value={ethernetInterface}
-                  onChange={(e) => setEthernetInterface(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">PPPoE Username</label>
-                <Input
-                  placeholder="Username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">PPPoE Password</label>
-                <Input
-                  type="password"
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <h3 className="text-lg font-medium">Định tuyến IP</h3>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Nhập địa chỉ IP (vd: 192.168.1.0/24)"
-                  value={newIp}
-                  onChange={(e) => setNewIp(e.target.value)}
-                />
-                <select
-                  className="border rounded px-3 py-2"
-                  value={selectedWan}
-                  onChange={(e) => setSelectedWan(parseInt(e.target.value))}
-                >
-                  {Array.from({ length: numConnections }, (_, i) => (
-                    <option key={i + 1} value={i + 1}>WAN {i + 1}</option>
-                  ))}
-                </select>
-                <Button onClick={addIpRoute}>Thêm</Button>
-              </div>
-
-              {ipRoutes.length > 0 && (
-                <div className="space-y-2">
-                  {ipRoutes.map((route, index) => (
-                    <div key={index} className="flex justify-between items-center bg-gray-50 p-2 rounded">
-                      <span>{route.ip} → WAN {route.wan}</span>
-                      <Button variant="destructive" size="sm" onClick={() => removeIpRoute(index)}>
-                        Xóa
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+          <FirewallForm
+            portForwardIps={portForwardIps}
+            setPortForwardIps={setPortForwardIps}
+            lanNetworks={lanNetworks}
+            setLanNetworks={setLanNetworks}
+          />
           
           <Button onClick={generateConfig}>Tạo cấu hình</Button>
 
