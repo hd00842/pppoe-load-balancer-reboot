@@ -4,6 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
 import { generateBasicConfig, generateIpRouting, generateMangleRules, generateNatRules, generatePPPoEConfig } from "@/utils/configGenerators";
 import { BasicSettingsForm } from "./forms/BasicSettingsForm";
 import { FirewallForm } from "./forms/FirewallForm";
@@ -101,6 +102,45 @@ const ConfigurationForm = () => {
             password={password}
             setPassword={setPassword}
           />
+
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">Định tuyến theo IP</h3>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Nhập địa chỉ IP"
+                value={newIp}
+                onChange={(e) => setNewIp(e.target.value)}
+              />
+              <select
+                className="border rounded px-2"
+                value={selectedWan}
+                onChange={(e) => setSelectedWan(Number(e.target.value))}
+              >
+                {Array.from({ length: numConnections }, (_, i) => (
+                  <option key={i + 1} value={i + 1}>
+                    WAN {i + 1}
+                  </option>
+                ))}
+              </select>
+              <Button onClick={addIpRoute}>Thêm</Button>
+            </div>
+            {ipRoutes.length > 0 && (
+              <div className="space-y-2">
+                {ipRoutes.map((route, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <span>IP: {route.ip} - WAN {route.wan}</span>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => removeIpRoute(index)}
+                    >
+                      Xóa
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           <FirewallForm
             portForwardIps={portForwardIps}
