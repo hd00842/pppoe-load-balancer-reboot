@@ -21,38 +21,47 @@ ${Array.from({ length: numConnections }, (_, i) =>
 };
 
 export const generateIpRouting = (numConnections: number, ipRoutes: IpRoute[]) => {
-  const defaultRoutes = Array.from({ length: numConnections }, (_, i) => 
-    `add check-gateway=ping distance=1 gateway=pppoe-out${i + 1} routing-mark=WAN${i + 1}`
+  const mainTable = Array.from({ length: numConnections }, (_, i) => 
+    `add check-gateway=ping distance=${i + 1} gateway=pppoe-out${i + 1} routing-mark=to_wan${i + 1}`
   );
 
   const customRoutes = ipRoutes.map(route => 
     `add distance=1 dst-address=${route.ip} gateway=pppoe-out${route.wan}`
   );
 
+  const loadBalancingRoutes = Array.from({ length: numConnections }, (_, i) => 
+    `add check-gateway=ping distance=${i + 1} gateway=pppoe-out${i + 1}`
+  );
+
   return `/ip route
-${defaultRoutes.join('\n')}
-${customRoutes.length > 0 ? '\n' + customRoutes.join('\n') : ''}`;
+${mainTable.join('\n')}
+${customRoutes.length > 0 ? '\n' + customRoutes.join('\n') : ''}
+
+# Load Balancing Routes
+${loadBalancingRoutes.join('\n')}`;
 };
 
 export const generateMangleRules = (numConnections: number, lanNetworks: string[]) => {
-  const connectionMarks = Array.from({ length: numConnections }, (_, i) => 
-    `add action=mark-connection chain=prerouting in-interface=ether1-wan new-connection-mark=WAN${i + 1}_conn passthrough=yes per-connection-classifier=both-addresses-and-ports:${numConnections}/${i + 1}`
-  );
-
-  const routingMarks = Array.from({ length: numConnections }, (_, i) => 
-    `add action=mark-routing chain=prerouting connection-mark=WAN${i + 1}_conn new-routing-mark=WAN${i + 1}`
-  );
-
   const lanAcceptRules = lanNetworks.map(network => 
     `add action=accept chain=prerouting src-address=${network}`
+  );
+
+  const markConnections = Array.from({ length: numConnections }, (_, i) => 
+    `add action=mark-connection chain=prerouting new-connection-mark=wan${i + 1}_conn passthrough=yes per-connection-classifier=both-addresses-and-ports:${numConnections}/${i + 1}`
+  );
+
+  const markRouting = Array.from({ length: numConnections }, (_, i) => 
+    `add action=mark-routing chain=prerouting connection-mark=wan${i + 1}_conn new-routing-mark=to_wan${i + 1}`
   );
 
   return `/ip firewall mangle
 ${lanAcceptRules.join('\n')}
 
-${connectionMarks.join('\n')}
+# Connection Classification
+${markConnections.join('\n')}
 
-${routingMarks.join('\n')}`;
+# Routing Marks
+${markRouting.join('\n')}`;
 };
 
 export const generateNatRules = (numConnections: number, portForwardIps: string[]) => {
@@ -65,7 +74,8 @@ export const generateNatRules = (numConnections: number, portForwardIps: string[
   );
 
   return `/ip firewall nat
+# Masquerade Rules for Load Balancing
 ${masqueradeRules.join('\n')}
 
-${portForwardRules.length > 0 ? portForwardRules.join('\n') : ''}`;
+${portForwardRules.length > 0 ? '# Port Forwarding Rules\n' + portForwardRules.join('\n') : ''}`;
 };
