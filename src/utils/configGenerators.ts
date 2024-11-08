@@ -3,13 +3,20 @@ interface IpRoute {
   wan: number;
 }
 
-export const generateBasicConfig = (numMacvlans: number) => {
+export const generateBasicConfig = (numMacvlans: number, ethernetInterface: string) => {
   return `/interface ethernet
-set [ find default-name=ether1 ] name=ether1-wan
+set [ find default-name=${ethernetInterface} ] name=${ethernetInterface}-wan
 
 /interface macvlan
 ${Array.from({ length: numMacvlans }, (_, i) => 
-  `add interface=ether1-wan name=macvlan${i + 1}`
+  `add interface=${ethernetInterface}-wan name=macvlan${i + 1}`
+).join('\n')}`;
+};
+
+export const generatePPPoEConfig = (numConnections: number, username: string, password: string) => {
+  return `/interface pppoe-client
+${Array.from({ length: numConnections }, (_, i) => 
+  `add add-default-route=no interface=macvlan${i + 1} name=pppoe-out${i + 1} user="${username}" password="${password}" disabled=no`
 ).join('\n')}`;
 };
 

@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { generateBasicConfig, generateIpRouting, generateMangleRules, generateNatRules } from "@/utils/configGenerators";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { generateBasicConfig, generateIpRouting, generateMangleRules, generateNatRules, generatePPPoEConfig } from "@/utils/configGenerators";
 
 interface IpRoute {
   ip: string;
@@ -14,10 +15,12 @@ interface IpRoute {
 const ConfigurationForm = () => {
   const [numConnections, setNumConnections] = useState<number>(2);
   const [numMacvlans, setNumMacvlans] = useState<number>(2);
+  const [ethernetInterface, setEthernetInterface] = useState("ether1");
+  const [username, setUsername] = useState("user1");
+  const [password, setPassword] = useState("password1");
   const [ipRoutes, setIpRoutes] = useState<IpRoute[]>([]);
   const [newIp, setNewIp] = useState("");
   const [selectedWan, setSelectedWan] = useState(1);
-  const [generatedConfig, setGeneratedConfig] = useState('');
 
   const addIpRoute = () => {
     if (!newIp) {
@@ -46,19 +49,33 @@ const ConfigurationForm = () => {
       return;
     }
 
-    const config = [
-      generateBasicConfig(numMacvlans),
-      generateIpRouting(numConnections, ipRoutes),
-      generateMangleRules(numConnections),
-      generateNatRules(numConnections)
-    ].join('\n\n');
+    const basicConfig = generateBasicConfig(numMacvlans, ethernetInterface);
+    const pppoeConfig = generatePPPoEConfig(numConnections, username, password);
+    const routingConfig = generateIpRouting(numConnections, ipRoutes);
+    const mangleConfig = generateMangleRules(numConnections);
+    const natConfig = generateNatRules(numConnections);
 
-    setGeneratedConfig(config);
+    setGeneratedConfigs({
+      basic: basicConfig,
+      pppoe: pppoeConfig,
+      routing: routingConfig,
+      mangle: mangleConfig,
+      nat: natConfig
+    });
+    
     toast.success("Đã tạo cấu hình thành công!");
   };
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(generatedConfig);
+  const [generatedConfigs, setGeneratedConfigs] = useState({
+    basic: '',
+    pppoe: '',
+    routing: '',
+    mangle: '',
+    nat: ''
+  });
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
     toast.success("Đã sao chép vào clipboard!");
   };
 
@@ -89,6 +106,34 @@ const ConfigurationForm = () => {
                   placeholder="Số lượng MacVLAN"
                   value={numMacvlans}
                   onChange={(e) => setNumMacvlans(parseInt(e.target.value) || 2)}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Ethernet Interface</label>
+                <Input
+                  placeholder="Ethernet Interface"
+                  value={ethernetInterface}
+                  onChange={(e) => setEthernetInterface(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">PPPoE Username</label>
+                <Input
+                  placeholder="Username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">PPPoE Password</label>
+                <Input
+                  type="password"
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
             </div>
@@ -128,24 +173,33 @@ const ConfigurationForm = () => {
             </div>
           </div>
           
-          <div className="flex gap-2">
-            <Button onClick={generateConfig}>Tạo cấu hình</Button>
-          </div>
+          <Button onClick={generateConfig}>Tạo cấu hình</Button>
 
-          {generatedConfig && (
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-medium">Cấu hình RouterOS</h3>
-                <Button variant="outline" onClick={copyToClipboard}>
-                  Sao chép
-                </Button>
-              </div>
-              <Textarea
-                value={generatedConfig}
-                readOnly
-                className="h-[400px] font-mono"
-              />
-            </div>
+          {Object.keys(generatedConfigs).some(key => generatedConfigs[key as keyof typeof generatedConfigs]) && (
+            <Tabs defaultValue="basic" className="w-full">
+              <TabsList className="grid w-full grid-cols-5">
+                <TabsTrigger value="basic">Interface</TabsTrigger>
+                <TabsTrigger value="pppoe">PPPoE</TabsTrigger>
+                <TabsTrigger value="routing">Route</TabsTrigger>
+                <TabsTrigger value="mangle">Mangle</TabsTrigger>
+                <TabsTrigger value="nat">NAT</TabsTrigger>
+              </TabsList>
+              {Object.entries(generatedConfigs).map(([key, config]) => (
+                <TabsContent key={key} value={key} className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-medium">Cấu hình {key.toUpperCase()}</h3>
+                    <Button variant="outline" onClick={() => copyToClipboard(config)}>
+                      Sao chép
+                    </Button>
+                  </div>
+                  <Textarea
+                    value={config}
+                    readOnly
+                    className="h-[200px] font-mono"
+                  />
+                </TabsContent>
+              ))}
+            </Tabs>
           )}
         </CardContent>
       </Card>
