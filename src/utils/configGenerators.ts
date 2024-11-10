@@ -21,6 +21,11 @@ ${Array.from({ length: numConnections }, (_, i) =>
 };
 
 export const generateIpRouting = (numConnections: number, ipRoutes: IpRoute[]) => {
+  // Create routing tables
+  const routingTables = Array.from({ length: numConnections }, (_, i) => 
+    `add name=to_wan${i + 1} fib`
+  );
+
   // Main routing table with marks
   const mainTable = Array.from({ length: numConnections }, (_, i) => 
     `add check-gateway=ping distance=${i + 1} gateway=pppoe-out${i + 1} routing-mark=to_wan${i + 1}`
@@ -41,7 +46,11 @@ export const generateIpRouting = (numConnections: number, ipRoutes: IpRoute[]) =
     `add check-gateway=ping distance=${10 + i} gateway=pppoe-out${i + 1} comment="backup route for wan${i + 1}"`
   );
 
-  return `/ip route
+  return `/ip route table
+# Create routing tables
+${routingTables.join('\n')}
+
+/ip route
 # Main routing table with marks
 ${mainTable.join('\n')}
 
