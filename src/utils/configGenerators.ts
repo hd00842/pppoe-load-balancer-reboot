@@ -21,24 +21,37 @@ ${Array.from({ length: numConnections }, (_, i) =>
 };
 
 export const generateIpRouting = (numConnections: number, ipRoutes: IpRoute[]) => {
+  // Main routing table with marks
   const mainTable = Array.from({ length: numConnections }, (_, i) => 
     `add check-gateway=ping distance=${i + 1} gateway=pppoe-out${i + 1} routing-mark=to_wan${i + 1}`
   );
 
+  // Custom routes for specific IPs
   const customRoutes = ipRoutes.map(route => 
     `add distance=1 dst-address=${route.ip} gateway=pppoe-out${route.wan}`
   );
 
-  const loadBalancingRoutes = Array.from({ length: numConnections }, (_, i) => 
+  // Default routes for each WAN
+  const defaultRoutes = Array.from({ length: numConnections }, (_, i) => 
     `add check-gateway=ping distance=${i + 1} gateway=pppoe-out${i + 1}`
   );
 
-  return `/ip route
-${mainTable.join('\n')}
-${customRoutes.length > 0 ? '\n' + customRoutes.join('\n') : ''}
+  // Backup routes
+  const backupRoutes = Array.from({ length: numConnections }, (_, i) => 
+    `add check-gateway=ping distance=${10 + i} gateway=pppoe-out${i + 1} comment="backup route for wan${i + 1}"`
+  );
 
-# Load Balancing Routes
-${loadBalancingRoutes.join('\n')}`;
+  return `/ip route
+# Main routing table with marks
+${mainTable.join('\n')}
+
+${customRoutes.length > 0 ? '# Custom IP routes\n' + customRoutes.join('\n') + '\n' : ''}
+
+# Default routes for load balancing
+${defaultRoutes.join('\n')}
+
+# Backup routes
+${backupRoutes.join('\n')}`;
 };
 
 export const generateMangleRules = (numConnections: number, lanNetworks: string[]) => {
